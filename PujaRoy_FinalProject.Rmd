@@ -1,0 +1,276 @@
+---
+title: "Final Project"
+author: "Puja Roy"
+date: "5/3/24"
+output: openintro::lab_report
+---
+
+### Introduction
+
+The goal of this project is to perform sentiment analysis on the reviews of Amazon’s Top 100 Bestselling Books. By analyzing the sentiment expressed in these reviews, I aim to gain insights into customer preferences and opinions regarding bestselling books. This analysis will not only provide valuable information for book publishers and authors but also help potential readers in making informed decisions.
+
+### Motivation
+
+Understanding customer sentiments towards popular books is crucial for various stakeholders in the publishing industry. By deciphering the underlying sentiments expressed in reviews, publishers can identify strengths and weaknesses of their offerings, while authors can gain insights into reader preferences and areas for improvement.
+
+### Data Sources
+The primary data source for this analysis will be the dataset available on Kaggle containing reviews of Amazon’s Top 100 Bestselling Books. Additionally, I might utilize web scraping techniques to gather supplementary data from other sources such as Goodreads or book review websites to enrich our analysis.
+
+### Import the libraries & packages
+
+```{r}
+library(tidyverse)
+library(openintro)
+library(dplyr)
+```
+
+### Load the data
+
+```{r}
+url <- "https://raw.githubusercontent.com/pujaroy280/DATA607FinalProject/main/customer%20reviews.csv"
+amazon_reviews <- read.csv(url) 
+head(amazon_reviews)
+```
+
+### Data Exploration
+```{r}
+str(amazon_reviews)
+```
+
+```{r}
+summary(amazon_reviews)
+```
+
+```{r}
+# Check for missing values
+sum(is.na(amazon_reviews))
+```
+
+```{r}
+# Count the number of missing values in each column
+missing_values <- colSums(is.na(amazon_reviews))
+missing_values
+```
+
+```{r}
+# Print out the column names
+print(colnames(amazon_reviews))
+```
+
+```{r}
+num_duplicates <- sum(duplicated(amazon_reviews))
+# Check for duplicates
+duplicates <- amazon_reviews[duplicated(amazon_reviews), ]
+print(duplicates)
+```
+
+### Exploratory Data Analysis
+
+The text data from the review.description column is tokenized using the `unnest_tokens` function from the tidytext package. This process breaks down the text into individual words or tokens, which facilitates further analysis.
+```{r}
+# Tokenization of reviews
+library(tidytext)
+amazon_reviews_tokens <- amazon_reviews %>%
+  unnest_tokens(word, review.description)
+```
+
+I leveraged the bing sentiment lexicon which was loaded using the get_sentiments function from the textdata package. The bing lexicon contain lists of words categorized as either positive or negative sentiment.
+
+```{r}
+# Load sentiment lexicons
+library(textdata)
+sentiments <- get_sentiments("bing")
+```
+
+The tokenized reviews are joined with the sentiment lexicons based on the words in the reviews. This allows to assign sentiment scores to each word based on whether it is classified as positive or negative in the lexicon. Additionally, the sentiment scores are aggregated for each review, resulting in a summary of sentiment scores for each review.
+```{r}
+# Join tokenized reviews with sentiment lexicons
+amazon_reviews_sentiment <- amazon_reviews_tokens %>%
+  inner_join(sentiments, by = "word") %>%
+  mutate(sentiment_category = ifelse(sentiment == "positive", "Positive", "Negative")) %>%
+  group_by(Sno, sentiment_category) %>%
+  summarize(sentiment_score = sum(ifelse(sentiment == "positive", 1, -1)))  # Assign sentiment scores for positive and negative sentiment
+```
+
+```{r}
+# Aggregate sentiment scores for positive and negative reviews separately
+aggregate_sentiment <- amazon_reviews_sentiment %>%
+  group_by(sentiment_category) %>%
+  summarize(avg_sentiment_score = mean(sentiment_score))
+
+```
+
+Another approach to where the tokenized reviews are directly joined with the Bing sentiment lexicon using the inner_join function. This allows to count the occurrences of positive and negative words in the reviews.
+
+```{r}
+# Join with the Bing sentiment lexicon
+amazon_reviews_sentiments <- amazon_reviews_tokens %>%
+  inner_join(get_sentiments("bing"))
+```
+Based on the Amazon Customer Reviews descriptions, there are a higher number of positive words than negative words.
+```{r}
+# Count the occurrences of positive and negative words
+sentiment_counts <- amazon_reviews_sentiments %>%
+  count(sentiment)
+print(sentiment_counts)
+```
+
+I used the ggplot2 library to visualize the sentiment distribution frequency of positive and negative words from Amazon Customer Reviews.
+```{r}
+# Visualize the sentiment distribution with value counts
+library(ggplot2)
+ggplot(sentiment_counts, aes(x = sentiment, y = n, fill = sentiment)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = n), vjust = -0.5, color = "black", size = 3) + # Add value counts
+  labs(title = "Sentiment Distribution in Amazon Customer Reviews",
+       x = "Sentiment",
+       y = "Frequency") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+### Word Clouds
+
+```{r}
+# Create wordclouds for positive and negative sentiments
+positive_words <- amazon_reviews_sentiments %>%
+  filter(sentiment == "positive") %>%
+  count(word, sort = TRUE)
+print(positive_words)
+
+negative_words <- amazon_reviews_sentiments %>%
+  filter(sentiment == "negative") %>%
+  count(word, sort = TRUE)
+print(negative_words)
+
+# Plot wordcloud for positive sentiment
+library(wordcloud)
+wordcloud(positive_words$word, positive_words$n,
+          max.words = 100, scale=c(3,0.5),
+          colors = brewer.pal(8, "Dark2"),
+          random.order = FALSE,
+          rot.per = 0.35,
+          main = "Wordcloud for Positive Sentiment")
+
+# Plot wordcloud for negative sentiment
+wordcloud(negative_words$word, negative_words$n,
+          max.words = 100, scale=c(3,0.5),
+          colors = brewer.pal(8, "Dark2"),
+          random.order = FALSE,
+          rot.per = 0.35,
+          main = "Wordcloud for Negative Sentiment")
+
+```
+
+
+
+
+### Visualizing word frequencies
+```{r}
+# Visualizing word frequencies
+word_freq <- amazon_reviews_tokens %>%
+  count(word, sort = TRUE)
+
+# Filter the top 100 most frequent words
+word_freq_top_100 <- word_freq %>%
+  filter(rank(desc(n)) <= 45)
+
+# Sort words by frequency in descending order
+word_freq_top_100 <- word_freq_top_100 %>%
+  arrange(desc(n))
+
+# Plotting with hotpink color
+ggplot(word_freq_top_100, aes(x = n, y = reorder(word, n))) +
+  geom_col(fill = "hotpink") +  # Changing the fill color to hotpink
+  ylab("Words") +
+  xlab("Frequency") +
+  ggtitle("Top 45 Most Frequent Words") +
+  theme(axis.text.y = element_text(hjust = 0.5)) +
+  scale_x_continuous(labels = scales::comma)
+```
+
+### Visualizing word frequencies for positive and negative words
+
+```{r}
+# Filter the data for positive sentiment
+positive_reviews <- amazon_reviews_sentiments %>%
+  filter(sentiment == "positive")
+#print(positive_reviews)
+
+# Filter the data for negative sentiment
+negative_reviews <- amazon_reviews_sentiments %>%
+  filter(sentiment == "negative")
+#print(negative_reviews)
+```
+
+```{r}
+# Count word frequencies for positive reviews
+word_freq_positive <- positive_reviews %>%
+  count(word, sort = TRUE)
+print(word_freq_positive)
+
+# Count word frequencies for negative reviews
+word_freq_negative <- negative_reviews %>%
+  count(word, sort = TRUE)
+print(word_freq_negative)
+```
+
+```{r}
+# Combine the top 45 most frequent words for positive and negative sentiments
+word_freq_top_positive <- word_freq_positive %>%
+  filter(rank(desc(n)) <= 45)
+print(word_freq_top_positive)
+
+word_freq_top_negative <- word_freq_negative %>%
+  filter(rank(desc(n)) <= 45)
+print(word_freq_top_negative)
+```
+
+```{r}
+# Sort words by frequency in descending order for both positive and negative sentiments
+word_freq_top_positive <- word_freq_top_positive %>%
+  arrange(desc(n))
+print(word_freq_top_positive)
+
+word_freq_top_negative <- word_freq_top_negative %>%
+  arrange(desc(n))
+print(word_freq_top_negative)
+```
+
+```{r}
+# Plot for positive words
+plot_positive <- ggplot(word_freq_top_positive, aes(x = n, y = reorder(word, n))) +
+  geom_col(fill = "darkgreen") +
+  ylab("Words") +
+  xlab("Frequency") +
+  ggtitle("Top 45 Most Frequent Positive Words") +
+  theme(axis.text.y = element_text(hjust = 0.5)) +  # Center y-axis labels
+  scale_x_continuous(labels = scales::comma)  # Add comma separators to x-axis labels
+
+# Plot for negative words
+plot_negative <- ggplot(word_freq_top_negative, aes(x = n, y = reorder(word, n))) +
+  geom_col(fill = "skyblue") +
+  ylab("Words") +
+  xlab("Frequency") +
+  ggtitle("Top 45 Most Frequent Negative Words") +
+  theme(axis.text.y = element_text(hjust = 0.5)) +  # Center y-axis labels
+  scale_x_continuous(labels = scales::comma)  # Add comma separators to x-axis labels
+
+# Display the plots separately
+plot_positive
+plot_negative
+
+```
+
+### Conclusion
+
+Through conducting sentiment analysis on Amazon’s Top 100 Bestselling Book reviews, I aimed to provide valuable insights into customer opinions and preferences in the realm of popular literature. Based on my analysis, it was evident that Amazon Book Reviewers mostly wrote positive reviews rather than negative ones. This analysis will not only benefit publishers and authors but also assist readers in making informed decisions about their book selections.
+
+
+
+
+
+
+
+
+
