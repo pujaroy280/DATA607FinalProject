@@ -1,5 +1,5 @@
 ---
-title: "Final Project"
+title: "DATA 607 Final Project - Sentiment Analysis on Amazons's Bestselling Books Customer Reviews"
 author: "Puja Roy"
 date: "5/3/24"
 output: openintro::lab_report
@@ -7,7 +7,7 @@ output: openintro::lab_report
 
 ### Introduction
 
-The goal of this project is to perform sentiment analysis on the reviews of Amazon’s Top 100 Bestselling Books. By analyzing the sentiment expressed in these reviews, I aim to gain insights into customer preferences and opinions regarding bestselling books. This analysis will not only provide valuable information for book publishers and authors but also help potential readers in making informed decisions.
+The goal of this project is to perform sentiment analysis on the reviews of Amazon’s Top 100 Bestselling Books: https://www.kaggle.com/datasets/anshtanwar/top-200-trending-books-with-reviews. By analyzing the sentiment expressed in these reviews, I aim to gain insights into customer preferences and opinions regarding bestselling books. This analysis will not only provide valuable information for book publishers and authors but also help potential readers in making informed decisions.
 
 ### Motivation
 
@@ -62,6 +62,12 @@ num_duplicates <- sum(duplicated(amazon_reviews))
 # Check for duplicates
 duplicates <- amazon_reviews[duplicated(amazon_reviews), ]
 print(duplicates)
+```
+
+```{r}
+# Drop certain columns
+amazon_reviews <- subset(amazon_reviews, select = -c(is_verified, ASIN))
+print(amazon_reviews)
 ```
 
 ### Exploratory Data Analysis
